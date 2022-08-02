@@ -26,28 +26,32 @@ struct PlayerInfo {
     score: u64,
 }
 
-struct App<'a> {
+struct App {
     input_mode: InputMode,
     input: String,
     players: Vec<PlayerInfo>,
-    items: StatefulList<&'a str>,
+    player_list: StatefulList<String>,
 }
 
-impl<'a> App<'a> {
-    fn new() -> App<'a> {
+impl App {
+    fn new() -> App {
         App {
             input: String::new(),
             players: Vec::new(),
-            items: StatefulList::with_items(vec![]),
+            player_list: StatefulList::with_items(vec![]),
             input_mode: InputMode::Browse,
         }
     }
 
-    fn add_player(&mut self, name: String) {
+    fn add_player(&mut self) {
         self.players.push(PlayerInfo {
-            name: name,
+            name: self.input.drain(..).collect(),
             score: 0,
         })
+    }
+
+    fn update_player_list(&mut self) {
+        self.player_list = StatefulList::with_items(self.players.iter().cloned().map(|p|p.name).collect());
     }
 
     fn trigger_user_input(&mut self) {
@@ -88,8 +92,8 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
             match app.input_mode {
                 InputMode::Browse => match key.code {
                     KeyCode::Char('q') => return Ok(()),
-                    KeyCode::Down => app.items.next(),
-                    KeyCode::Up => app.items.previous(),
+                    KeyCode::Down => app.player_list.next(),
+                    KeyCode::Up => app.player_list.previous(),
                     KeyCode::Char('a') => {
                         app.trigger_user_input();
                     }
@@ -97,12 +101,9 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
                 },
                 InputMode::AddPlayer => match key.code {
                     KeyCode::Enter => {
-                        app.players.push(PlayerInfo {
-                            name: app.input.drain(..).collect(),
-                            score: 0,
-                        });
-                        // app.items.push(app.players.last().unwrap().name.as_str()); // This line is giving me trouble.
-                    }
+                        app.add_player();
+                        app.update_player_list();
+                        }
                     KeyCode::Char(c) => {
                         app.input.push(c);
                     }
@@ -128,10 +129,10 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
         .split(f.size());
 
     let items: Vec<ListItem> = app
-        .items
+        .player_list
         .items
         .iter()
-        .map(|&i| ListItem::new(i))
+        .map(|i| ListItem::new(i.as_str()))
         .collect();
 
     let items = List::new(items).
@@ -142,7 +143,7 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
                 .add_modifier(Modifier::BOLD),
         ).highlight_symbol("> ");
 
-    f.render_stateful_widget(items, chunks[0], &mut app.items.state);
+    f.render_stateful_widget(items, chunks[0], &mut app.player_list.state);
 
     match app.input_mode {
         InputMode::AddPlayer => { 
@@ -187,7 +188,7 @@ impl<T> StatefulList<T> {
     }
 
     fn previous(&mut self) {
-        let i = match self.state.selected() {
+        match self.state.selected() {
             Some(i) => {
                 if i == 0 {
                     self.items.len() - 1
