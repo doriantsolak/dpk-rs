@@ -20,10 +20,42 @@ enum InputMode {
     AddPlayer,
 }
 
+#[derive(Debug)]
+enum AppError {
+    TooManyPlayers
+}
+
+#[derive(Clone)]
+struct PlayerRoundInfo {
+    contra: bool,
+    bids: u8,
+    ex_ante: u8,
+    foxes_caught: u8,
+    doppelkopf: u8,
+    karlchen: bool,
+    karlchen_caught: bool,
+}
+
+impl PlayerRoundInfo {
+    fn default() -> PlayerRoundInfo {
+        PlayerRoundInfo {
+            contra: false,
+            bids: 0,
+            ex_ante: 0,
+            foxes_caught: 0,
+            doppelkopf: 0,
+            karlchen: false,
+            karlchen_caught: false,
+        }
+    }
+}
+
 #[derive(Clone)]
 struct PlayerInfo {
     name: String,
-    score: u64,
+    total_score: u64,
+    past_scores: Vec<u64>,
+    round_info: PlayerRoundInfo,
 }
 
 struct App {
@@ -39,24 +71,40 @@ impl App {
             input: String::new(),
             players: Vec::new(),
             player_list: StatefulList::with_items(vec![]),
-            input_mode: InputMode::Browse,
+            input_mode: InputMode::AddPlayer,
         }
     }
 
-    fn add_player(&mut self) {
-        self.players.push(PlayerInfo {
-            name: self.input.drain(..).collect(),
-            score: 0,
-        })
+    fn add_player(&mut self) -> Result<(), AppError> {
+        match self.players.len() {
+            0..=3 => {
+                self.players.push(PlayerInfo {
+                    name: self.input.drain(..).collect(),
+                    total_score: 0,
+                    past_scores: Vec::new(),
+                    round_info: PlayerRoundInfo::default(),
+                })
+            },
+            _ => {
+                return Err(AppError::TooManyPlayers)
+            }
+        }
+        Ok(())
     }
 
     fn update_player_list(&mut self) {
         self.player_list = StatefulList::with_items(self.players.iter().cloned().map(|p|p.name).collect());
     }
 
-    fn trigger_user_input(&mut self) {
+    fn set_input_mode_addplayer(&mut self) {
         self.input_mode = InputMode::AddPlayer;
     }
+
+    fn set_input_mode_browse(&mut self) {
+        self.input_mode = InputMode::Browse;
+    }
+
+
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -95,13 +143,16 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
                     KeyCode::Down => app.player_list.next(),
                     KeyCode::Up => app.player_list.previous(),
                     KeyCode::Char('a') => {
-                        app.trigger_user_input();
+                        app.set_input_mode_addplayer();
                     }
                     _ => {}
                 },
                 InputMode::AddPlayer => match key.code {
                     KeyCode::Enter => {
-                        app.add_player();
+                        match app.add_player() {
+                            Ok(_) => (),
+                            Err(_) => app.set_input_mode_browse(),
+                        }
                         app.update_player_list();
                         }
                     KeyCode::Char(c) => {
@@ -125,25 +176,49 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
 
     let chunks = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
+        .constraints([Constraint::Percentage(25), Constraint::Percentage(25), Constraint::Percentage(25), Constraint::Percentage(25)].as_ref())
         .split(f.size());
 
-    let items: Vec<ListItem> = app
-        .player_list
-        .items
-        .iter()
-        .map(|i| ListItem::new(i.as_str()))
-        .collect();
+    // let items: Vec<ListItem> = app
+    //     .player_list
+    //     .items
+    //     .iter()
+    //     .map(|i| ListItem::new(i.as_str()))
+    //     .collect();
 
-    let items = List::new(items).
-        block(Block::default().borders(Borders::ALL).title("Players"))
-        .highlight_style(
-            Style::default()
-                .bg(Color::LightGreen)
-                .add_modifier(Modifier::BOLD),
-        ).highlight_symbol("> ");
+    // let items = List::new(items).
+    //     block(Block::default().borders(Borders::ALL).title("Players"))
+    //     .highlight_style(
+    //         Style::default()
+    //             .bg(Color::LightGreen)
+    //             .add_modifier(Modifier::BOLD),
+    //     ).highlight_symbol("> ");
 
-    f.render_stateful_widget(items, chunks[0], &mut app.player_list.state);
+    // f.render_stateful_widget(items, chunks[0], &mut app.player_list.state);
+
+    // let block = Block::default()
+    //     .borders(Borders::ALL)
+    //     .title("Player 1");
+    // f.render_widget(block, chunks[0]);
+
+    // let block = Block::default()
+    //     .borders(Borders::ALL)
+    //     .title("Player 2");
+    // f.render_widget(block, chunks[1]);
+
+    // let block = Block::default()
+    //     .borders(Borders::ALL)
+    //     .title("Player 3");
+    // f.render_widget(block, chunks[2]);
+
+    // let block = Block::default()
+    //     .borders(Borders::ALL)
+    //     .title("Player 4");
+    // f.render_widget(block, chunks[3]);
+
+    if app.players.len() > 0 {
+        render_player_blocks(f, &chunks, app);
+    }
 
     match app.input_mode {
         InputMode::AddPlayer => { 
@@ -229,4 +304,14 @@ fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
             .as_ref(),
         )
         .split(popup_layout[1])[1]
+}
+
+fn render_player_blocks<B: Backend>(f: &mut Frame<B>, chunks: &Vec<Rect>, app: &App) {
+
+    for i in 0..app.players.len() {
+        let block = Block::default()
+            .borders(Borders::ALL)
+            .title(app.players[i].name.clone());
+        f.render_widget(block, chunks[i])
+    }
 }
