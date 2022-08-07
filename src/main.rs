@@ -1,5 +1,8 @@
 use std::{error::Error, io};
 
+use rand::{thread_rng, Rng};
+use rand::distributions::Alphanumeric;
+
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
     execute,
@@ -18,6 +21,7 @@ use tui::{
 enum InputMode {
     Browse,
     AddPlayer,
+    ScoreRound,
 }
 
 #[derive(Debug)]
@@ -27,25 +31,85 @@ enum AppError {
 
 #[derive(Clone)]
 struct PlayerRoundInfo {
+    won: bool,
     contra: bool,
     bids: u8,
     ex_ante: u8,
-    foxes_caught: u8,
+    fox: [String; 2],
     doppelkopf: u8,
     karlchen: bool,
     karlchen_caught: bool,
+    round_score: u8,
+    teammate: String,
 }
 
 impl PlayerRoundInfo {
     fn default() -> PlayerRoundInfo {
         PlayerRoundInfo {
+            won: false,
             contra: false,
             bids: 0,
             ex_ante: 0,
-            foxes_caught: 0,
+            fox: [rand_string(), rand_string()],
             doppelkopf: 0,
             karlchen: false,
             karlchen_caught: false,
+            round_score: 0,
+            teammate: String::new(),
+        }
+    }
+}
+
+impl PlayerRoundInfo {
+    fn increment_score(&mut self) {
+        self.round_score += 1;
+    }
+
+    fn decrement_score(&mut self) {
+        self.round_score -= 1;
+    }
+
+    fn score_player(&mut self) {
+        // Award points points for a win
+        // Award/substract points for potential bids
+        match self.won {
+            true => {
+                self.increment_score();
+                self.round_score += self.bids;
+                self.round_score += self.ex_ante;
+                match self.contra {
+                    true => self.increment_score(),
+                    false => (),
+                };
+            },
+            false => {
+                self.decrement_score();
+                self.round_score -= self.bids;
+                self.round_score -= self.ex_ante;
+            },
+        };
+        // Award points for Doppelkopf, Karlchen, catching of Karlchen
+        self.round_score += self.doppelkopf;
+        match self.karlchen {
+            true => self.increment_score(),
+            false => (),
+        };
+        match self.karlchen {
+            true => self.increment_score(),
+            false => (),
+        };
+        match self.karlchen_caught {
+            true => self.increment_score(),
+            false => (),
+        };
+        // Award points for foxes
+        match self.fox[0] {
+            _ if self.fox[0] == self.teammate => self.increment_score(),
+            _ => (),
+        }
+        match self.fox[0] {
+            _ if self.fox[0] == self.teammate => self.increment_score(),
+            _ => (),
         }
     }
 }
@@ -96,6 +160,10 @@ impl App {
         self.player_list = StatefulList::with_items(self.players.iter().cloned().map(|p|p.name).collect());
     }
 
+    fn score_round(&mut self) {
+
+    }
+
     fn set_input_mode_addplayer(&mut self) {
         self.input_mode = InputMode::AddPlayer;
     }
@@ -104,6 +172,11 @@ impl App {
         self.input_mode = InputMode::Browse;
     }
 
+    fn set_input_mode_scoreround(&mut self) {
+        self.input_mode = InputMode::ScoreRound;
+    }   
+
+    fn add_event(&mut self) {}
 
 }
 
@@ -145,6 +218,9 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
                     KeyCode::Char('a') => {
                         app.set_input_mode_addplayer();
                     }
+                    KeyCode::Char('e') => {
+                        app.add_event()
+                    }
                     _ => {}
                 },
                 InputMode::AddPlayer => match key.code {
@@ -166,6 +242,9 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
                     }
                     _ => {}
                 },
+                InputMode::ScoreRound => match key.code {
+                    _ => (),
+                }
             }
         }
     }
@@ -196,26 +275,6 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
 
     // f.render_stateful_widget(items, chunks[0], &mut app.player_list.state);
 
-    // let block = Block::default()
-    //     .borders(Borders::ALL)
-    //     .title("Player 1");
-    // f.render_widget(block, chunks[0]);
-
-    // let block = Block::default()
-    //     .borders(Borders::ALL)
-    //     .title("Player 2");
-    // f.render_widget(block, chunks[1]);
-
-    // let block = Block::default()
-    //     .borders(Borders::ALL)
-    //     .title("Player 3");
-    // f.render_widget(block, chunks[2]);
-
-    // let block = Block::default()
-    //     .borders(Borders::ALL)
-    //     .title("Player 4");
-    // f.render_widget(block, chunks[3]);
-
     if app.players.len() > 0 {
         render_player_blocks(f, &chunks, app);
     }
@@ -228,8 +287,9 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
         let area = centered_rect(60, 20, size);
         f.render_widget(Clear, area);
         f.render_widget(input, area);
-        }
-        InputMode::Browse => {}
+        },
+        InputMode::Browse => {},
+        InputMode::ScoreRound => {},
     }
 
 
@@ -314,4 +374,12 @@ fn render_player_blocks<B: Backend>(f: &mut Frame<B>, chunks: &Vec<Rect>, app: &
             .title(app.players[i].name.clone());
         f.render_widget(block, chunks[i])
     }
+}
+
+fn rand_string() -> String {
+    thread_rng()
+        .sample_iter(&Alphanumeric)
+        .take(30)
+        .map(char::from)
+        .collect()
 }
