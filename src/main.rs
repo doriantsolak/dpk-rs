@@ -1,7 +1,7 @@
 use std::{error::Error, io};
 
-use rand::{thread_rng, Rng};
 use rand::distributions::Alphanumeric;
+use rand::{thread_rng, Rng};
 
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
@@ -21,12 +21,32 @@ use tui::{
 enum InputMode {
     Browse,
     AddPlayer,
-    ScoreRound,
+    SelectPlayer,
 }
 
 #[derive(Debug)]
 enum AppError {
-    TooManyPlayers
+    TooManyPlayers,
+}
+
+struct Round {
+    // time:
+    counter: u8,
+    player_round_info: [PlayerRoundInfo; 4],
+}
+
+impl Round {
+    fn default() -> Round {
+        Round {
+            counter: 0,
+            player_round_info: [
+                PlayerRoundInfo::default(),
+                PlayerRoundInfo::default(),
+                PlayerRoundInfo::default(),
+                PlayerRoundInfo::default(),
+            ],
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -58,9 +78,7 @@ impl PlayerRoundInfo {
             teammate: String::new(),
         }
     }
-}
 
-impl PlayerRoundInfo {
     fn increment_score(&mut self) {
         self.round_score += 1;
     }
@@ -81,12 +99,12 @@ impl PlayerRoundInfo {
                     true => self.increment_score(),
                     false => (),
                 };
-            },
+            }
             false => {
                 self.decrement_score();
                 self.round_score -= self.bids;
                 self.round_score -= self.ex_ante;
-            },
+            }
         };
         // Award points for Doppelkopf, Karlchen, catching of Karlchen
         self.round_score += self.doppelkopf;
@@ -118,51 +136,45 @@ impl PlayerRoundInfo {
 struct PlayerInfo {
     name: String,
     total_score: u64,
-    past_scores: Vec<u64>,
-    round_info: PlayerRoundInfo,
 }
 
-struct App {
+struct App<'a> {
     input_mode: InputMode,
     input: String,
     players: Vec<PlayerInfo>,
-    player_list: StatefulList<String>,
+    rounds: Vec<PlayerRoundInfo>,
+    player_list: StatefulList<&'a str>,
 }
 
-impl App {
-    fn new() -> App {
+impl<'a> App<'a> {
+    fn new() -> App<'a> {
         App {
             input: String::new(),
             players: Vec::new(),
             player_list: StatefulList::with_items(vec![]),
             input_mode: InputMode::AddPlayer,
+            rounds: Vec::new(),
         }
     }
 
     fn add_player(&mut self) -> Result<(), AppError> {
         match self.players.len() {
-            0..=3 => {
-                self.players.push(PlayerInfo {
-                    name: self.input.drain(..).collect(),
-                    total_score: 0,
-                    past_scores: Vec::new(),
-                    round_info: PlayerRoundInfo::default(),
-                })
-            },
-            _ => {
-                return Err(AppError::TooManyPlayers)
-            }
+            0..=3 => self.players.push(PlayerInfo {
+                name: self.input.drain(..).collect(),
+                total_score: 0,
+            }),
+            _ => return Err(AppError::TooManyPlayers),
         }
         Ok(())
     }
 
     fn update_player_list(&mut self) {
-        self.player_list = StatefulList::with_items(self.players.iter().cloned().map(|p|p.name).collect());
+
+        self.player_list =
+            StatefulList::with_items(self.players.iter().cloned().map(|p| p.name).collect());
     }
 
-    fn score_round(&mut self) {
-
-    }
+    fn score_round(&mut self) {}
 
     fn set_input_mode_addplayer(&mut self) {
         self.input_mode = InputMode::AddPlayer;
@@ -172,12 +184,17 @@ impl App {
         self.input_mode = InputMode::Browse;
     }
 
-    fn set_input_mode_scoreround(&mut self) {
-        self.input_mode = InputMode::ScoreRound;
-    }   
+    fn set_input_mode_selectplayer(&mut self) {
+        self.input_mode = InputMode::SelectPlayer;
+    }
 
-    fn add_event(&mut self) {}
+    fn new_round(&mut self) {
 
+    }
+
+    fn add_event(&mut self) {
+
+    }
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -218,9 +235,10 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
                     KeyCode::Char('a') => {
                         app.set_input_mode_addplayer();
                     }
-                    KeyCode::Char('e') => {
-                        app.add_event()
-                    }
+                    // KeyCode::Char('n') => {
+                    //     app.set_input_mode_select();
+                    // }
+                    KeyCode::Char('e') => app.add_event(),
                     _ => {}
                 },
                 InputMode::AddPlayer => match key.code {
@@ -230,7 +248,7 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
                             Err(_) => app.set_input_mode_browse(),
                         }
                         app.update_player_list();
-                        }
+                    }
                     KeyCode::Char(c) => {
                         app.input.push(c);
                     }
@@ -242,9 +260,9 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
                     }
                     _ => {}
                 },
-                InputMode::ScoreRound => match key.code {
+                InputMode::SelectPlayer => match key.code {
                     _ => (),
-                }
+                },
             }
         }
     }
@@ -254,46 +272,39 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
     let size = f.size();
 
     let chunks = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(25), Constraint::Percentage(25), Constraint::Percentage(25), Constraint::Percentage(25)].as_ref())
-        .split(f.size());
-
-    // let items: Vec<ListItem> = app
-    //     .player_list
-    //     .items
-    //     .iter()
-    //     .map(|i| ListItem::new(i.as_str()))
-    //     .collect();
-
-    // let items = List::new(items).
-    //     block(Block::default().borders(Borders::ALL).title("Players"))
-    //     .highlight_style(
-    //         Style::default()
-    //             .bg(Color::LightGreen)
-    //             .add_modifier(Modifier::BOLD),
-    //     ).highlight_symbol("> ");
-
-    // f.render_stateful_widget(items, chunks[0], &mut app.player_list.state);
+        //.direction(Direction::Horizontal)
+        .constraints(
+            [
+                Constraint::Ratio(1, 4),
+                Constraint::Ratio(3, 4),
+                Constraint::Ratio(1, 4),
+                Constraint::Ratio(1, 4),
+            ]
+            .as_ref(),
+        )
+        .split(size);
+    //.split(f.size());
 
     if app.players.len() > 0 {
-        render_player_blocks(f, &chunks, app);
+        render_player_blocks(f, chunks[0], app);
+    }
+
+    if app.players.len() == 4 {
+        render_round(f, chunks[1], app)
     }
 
     match app.input_mode {
-        InputMode::AddPlayer => { 
-        let input = Paragraph::new(app.input.as_ref())
-            .style(Style::default())
-            .block(Block::default().borders(Borders::ALL).title("New player"));
-        let area = centered_rect(60, 20, size);
-        f.render_widget(Clear, area);
-        f.render_widget(input, area);
-        },
-        InputMode::Browse => {},
-        InputMode::ScoreRound => {},
+        InputMode::AddPlayer => {
+            let input = Paragraph::new(app.input.as_ref())
+                .style(Style::default())
+                .block(Block::default().borders(Borders::ALL).title("New player"));
+            let area = centered_rect(60, 20, size);
+            f.render_widget(Clear, area);
+            f.render_widget(input, area);
+        }
+        InputMode::Browse => {}
+        InputMode::SelectPlayer => {}
     }
-
-
-
 }
 
 struct StatefulList<T> {
@@ -310,7 +321,7 @@ impl<T> StatefulList<T> {
     }
 
     fn next(&mut self) {
-        let i = match self.state.selected() {
+        match self.state.selected() {
             Some(i) => {
                 if i >= self.items.len() - 1 {
                     0
@@ -366,7 +377,16 @@ fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
         .split(popup_layout[1])[1]
 }
 
-fn render_player_blocks<B: Backend>(f: &mut Frame<B>, chunks: &Vec<Rect>, app: &App) {
+fn render_player_blocks<B: Backend>(f: &mut Frame<B>, area: Rect, app: &App) {
+    let chunks = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([
+            Constraint::Ratio(1, 4),
+            Constraint::Ratio(1, 4),
+            Constraint::Ratio(1, 4),
+            Constraint::Ratio(1, 4),
+        ].as_ref(),)
+        .split(area);
 
     for i in 0..app.players.len() {
         let block = Block::default()
@@ -374,6 +394,40 @@ fn render_player_blocks<B: Backend>(f: &mut Frame<B>, chunks: &Vec<Rect>, app: &
             .title(app.players[i].name.clone());
         f.render_widget(block, chunks[i])
     }
+}
+
+fn render_player_selection<B: Backend>(f: &mut Frame<B>, area: Rect, app: &mut App) {
+
+    let items: Vec<ListItem> = app
+    .player_list
+    .items
+    .iter()
+    .map(|i| ListItem::new(*i))
+    .collect();
+
+    let items = List::new(items).
+        block(Block::default().borders(Borders::ALL).title("Players"))
+        .highlight_style(
+            Style::default()
+                .bg(Color::LightGreen)
+                .add_modifier(Modifier::BOLD),
+        ).highlight_symbol("> ");
+
+    f.render_stateful_widget(items, area, &mut app.player_list.state);
+}
+
+fn render_round<B: Backend>(f: &mut Frame<B>, area: Rect, app: &mut App) {
+    let chunks = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([
+            Constraint::Ratio(1, 4),
+            Constraint::Ratio(1, 4),
+            Constraint::Ratio(1, 4),
+            Constraint::Ratio(1, 4)
+        ].as_ref(),)
+        .split(area);
+
+        render_player_selection(f, chunks[3], app)
 }
 
 fn rand_string() -> String {
