@@ -1,5 +1,3 @@
-use std::{convert::TryInto, usize};
-
 use tui::{
     layout::{Constraint, Direction, Layout, Rect},
     backend::Backend,
@@ -34,21 +32,26 @@ pub fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
         .split(popup_layout[1])[1]
 }
 
-pub fn render_player_blocks<B: Backend>(f: &mut Frame<B>, area: Rect, app: &App) {
-    let chunks = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([
-            Constraint::Ratio(1, 4),
-            Constraint::Ratio(1, 4),
-            Constraint::Ratio(1, 4),
-            Constraint::Ratio(1, 4),
-        ].as_ref(),)
-        .split(area);
+pub fn render_current_selection<B: Backend>(f: &mut Frame<B>, area: Rect, app: &App) {
+    let block = Block::default()
+        .borders(Borders::ALL);
+    f.render_widget(block, area)
+}
 
-    for i in 0..app.players.len() {
-        let block = Block::default()
-            .borders(Borders::ALL)
-            .title(app.players[i].name.clone());
-        f.render_widget(block, chunks[i])
-    }
+pub fn render_player_scores<B: Backend>(f: &mut Frame<B>, area: Rect) {
+    let block = Block::default()
+        .borders(Borders::ALL);
+    f.render_widget(block, area)
+}
+
+pub fn render_events<B: Backend>(f: &mut Frame<B>, area: Rect) {
+    let block = Block::default()
+        .borders(Borders::ALL);
+    f.render_widget(block, area)
+}
+
+pub fn render_log<B: Backend>(f: &mut Frame<B>, area: Rect) {
+    let block = Block::default()
+        .borders(Borders::ALL);
+    f.render_widget(block, area)
 }
