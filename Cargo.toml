@@ -8,4 +8,6 @@ edition = "2021"
 [dependencies]
 crossterm = "0.24.0"
 rand = "0.8.5"
+strum = { version = "0.24.1", features = ["derive"] }
+strum_macros = "0.24.3"
 tui = "0.18.0"

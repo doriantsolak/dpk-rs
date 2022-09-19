@@ -40,7 +40,6 @@ pub fn render_current_selection<B: Backend>(f: &mut Frame<B>, area: Rect, app: &
 
 pub fn render_player_scores<B: Backend>(f: &mut Frame<B>, players: &Vec<Player>, area: Rect) {
 
-
     let scores: Vec<ListItem> = players.clone().iter().map(|i| ListItem::new(i)).collect();
 
     let scores = List::new(scores)
@@ -53,6 +52,9 @@ pub fn render_player_scores<B: Backend>(f: &mut Frame<B>, players: &Vec<Player>,
 }
 
 pub fn render_events<B: Backend>(f: &mut Frame<B>, area: Rect) {
+
+    // let events
+
     let block = Block::default()
         .borders(Borders::ALL);
     f.render_widget(block, area)

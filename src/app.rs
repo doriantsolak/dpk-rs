@@ -1,11 +1,23 @@
 use tui::text::{Text};
+use strum::{IntoStaticStr};
 
 pub enum InputMode {
     AddPlayer,
     Browse,
 }
 
-pub enum AppError {
+#[derive(IntoStaticStr)]
+pub enum Event<'a> {
+    Fox(&'a str),
+    Won,
+    Re,
+    Bid,
+    Doppelkopf,
+    Karlchen,
+    Karlchen_caught,
+}
+
+pub enum DpkError {
 }
 
 pub struct Player {
