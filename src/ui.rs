@@ -36,7 +36,7 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
 
     render_current_selection(f, *upper_block, app);
 
-    render_player_scores(f, lower_blocks[0]);
+    render_player_scores(f,  &app.players, lower_blocks[0]);
 
     render_events(f, lower_blocks[1]);
 
@@ -44,7 +44,7 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
 
     match app.input_mode {
         InputMode::AddPlayer => {
-            let input = Paragraph::new(app.input.as_ref())
+            let input = Paragraph::new(app.input.clone())
                 .style(Style::default())
                 .block(Block::default().borders(Borders::ALL).title("New player"));
             let area = centered_rect(40, 20, chunks[1]);
