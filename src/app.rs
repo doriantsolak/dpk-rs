@@ -1,3 +1,5 @@
+use tui::text::{Text};
+
 pub enum InputMode {
     AddPlayer,
     Browse,
@@ -9,6 +11,14 @@ pub enum AppError {
 pub struct Player {
     pub name: String,
     pub score: u64,
+}
+
+
+
+impl From<&Player> for Text<'_> {
+    fn from(player: &Player) -> Self {
+        Text::raw(vec![player.name.clone(), player.score.clone().to_string()].join(": "))
+    }
 }
 
 pub struct App {
