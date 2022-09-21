@@ -38,7 +38,7 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
 
     render_player_scores(f,  &app.players, lower_blocks[0]);
 
-    render_events(f, lower_blocks[1]);
+    render_event_selection(f, lower_blocks[1]);
 
     render_log(f, lower_blocks[2]);
 
@@ -51,8 +51,11 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
             f.render_widget(Clear, area);
             f.render_widget(input, area);
         },
-        InputMode::Browse => {
-            
+        InputMode::SelectEvent => {
+
+        },
+        InputMode::SelectPlayer => {
+
         }
     }
 }

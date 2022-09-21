@@ -1,36 +1,27 @@
 use tui::text::{Text};
-use strum::{IntoStaticStr};
 
 pub enum InputMode {
     AddPlayer,
-    Browse,
+    SelectPlayer,
+    SelectEvent,
 }
 
-#[derive(IntoStaticStr)]
-pub enum Event<'a> {
-    Fox(&'a str),
-    Won,
-    Re,
+pub enum Event {
     Bid,
+    Fox,
     Doppelkopf,
+    Re,
+    Won,
     Karlchen,
-    Karlchen_caught,
+    KarlchenCaught,
 }
 
 pub enum DpkError {
 }
 
 pub struct Player {
-    pub name: String,
-    pub score: u64,
-}
-
-
-
-impl From<&Player> for Text<'_> {
-    fn from(player: &Player) -> Self {
-        Text::raw(vec![player.name.clone(), player.score.clone().to_string()].join(": "))
-    }
+    name: String,
+    score: u32,
 }
 
 pub struct App {
